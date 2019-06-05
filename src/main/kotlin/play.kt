@@ -132,12 +132,13 @@ class GameFrame : JFrame() {
 //            )
 //        }.map{ nn -> nn.map { it.toFloat() }.toFloatArray() }.take(populationSize)
 
+        val racetrackImg = ImageIO.read(File("track1.png"))
+
         val evaluateGeneration = { nn:Collection<SimpleNN> ->
             val agents = nn.map { Pair(it, NNCarRacerAgent(it)) }.toMap()
             val nnScore = mutableMapOf<SimpleNN, Double>()
 
 
-            val racetrackImg = ImageIO.read(File("track1.png"))
             val lidarCache = ConcurrentHashMap<Pair<Point, Double>, List<Double>>()
             val startPoints = listOf(Point(154,427), Point(291,276), Point(326,90), Point(383,405))
 
