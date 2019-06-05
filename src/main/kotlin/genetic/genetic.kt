@@ -60,7 +60,10 @@ private fun mutate(network: FloatArray, mutationSize: Double, mutationStrength: 
     }
 
     val res = network.clone()
-    indexes.forEach { res[it] *= Random.nextDouble(mutationStrength).toFloat() }
+    indexes.forEach {
+        val mutationAmount = Random.nextDouble(mutationStrength * 2) - mutationStrength
+        res[it] += mutationAmount.toFloat()
+    }
     return res
 }
 
