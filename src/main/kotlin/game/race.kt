@@ -79,7 +79,7 @@ class Race {
 
     fun getRacerScore(racer: Racer): Double {
         return racerCars[racer]?.let {
-            it.distanceTraveled.toDouble() * 3 - it.timeTraveled - 2 * (tickCount - it.timeTraveled)
+            4 * it.distanceTraveled.toDouble() - it.timeTraveled - 2 * (tickCount - it.timeTraveled)
         } ?: 0.0
     }
 
