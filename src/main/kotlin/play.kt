@@ -92,7 +92,7 @@ class GameFrame : JFrame() {
                 override fun run() {
                     race?.let {
                         it.tick()
-                        repaint()
+                        racePanel.repaint()
                     }
                 }
             }
@@ -130,21 +130,17 @@ class GameFrame : JFrame() {
             val lidarCache = ConcurrentHashMap<Pair<Point, Double>, List<Double>>()
             val startPoints = listOf(Point(154,427), Point(291,276), Point(326,90), Point(383,405))
 
-            var anyHadPoints = true
             for (point in startPoints) {
-                if (anyHadPoints) {
-                    val game = Race(racetrackImg, point, lidarCache)
-                    agents.values.forEach(game::registerRacer)
+                val game = Race(racetrackImg, point, lidarCache)
+                agents.values.forEach(game::registerRacer)
 
-                    var gameTime = 0
-                    do {
-                        game.tick(true)
-                    } while (++gameTime < gameLength)
+                var gameTime = 0
+                do {
+                    game.tick(true)
+                } while (++gameTime < gameLength)
 
-                    agents.forEach{ (nn, racer) ->
-                        nnScore[nn] = nnScore.getOrDefault(nn, 0.0) + game.getRacerScore(racer)
-                    }
-                    anyHadPoints = nnScore.values.any { it > 0 }
+                agents.forEach{ (nn, racer) ->
+                    nnScore[nn] = nnScore.getOrDefault(nn, 0.0) + game.getRacerScore(racer)
                 }
             }
 
