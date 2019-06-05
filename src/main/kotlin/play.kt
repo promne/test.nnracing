@@ -170,7 +170,7 @@ class GameFrame : JFrame() {
             if (lastStatsTime + 30000 < System.currentTimeMillis()) {
                 println("-------------------")
                 println("Generation $generationCount")
-                println("Time elapsed ${(System.currentTimeMillis()-startTime)/1000}")
+                println("Total time elapsed ${(System.currentTimeMillis()-startTime)/1000}")
                 evResult.stats.forEach(::println)
                 println()
                 lastStatsTime = System.currentTimeMillis()
