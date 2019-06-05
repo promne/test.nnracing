@@ -22,13 +22,12 @@ import javax.swing.*
 
 class GameFrame : JFrame() {
 
-    val populationSize = 100
-    val gameLength = 1000
-
     val generationHistoryData: MutableList<Array<Number>> = mutableListOf()
 
     val racePanel: RaceTrackPanel
     val generationHistoryPanel: HistoryChartPanel
+    val populationSizeSlider: JSlider
+    val evaluationGameDurationSlider: JSlider
     val retainSamplesSlider: JSlider
     val mutationChanceSlider: JSlider
     val mutationSizeSlider: JSlider
@@ -60,6 +59,18 @@ class GameFrame : JFrame() {
 
         val controlsPanel = JPanel()
         controlsPanel.layout = BoxLayout(controlsPanel, BoxLayout.Y_AXIS)
+
+        populationSizeSlider = JSlider(JSlider.HORIZONTAL, 1, 300, 60)
+        populationSizeSlider.majorTickSpacing = 299
+        populationSizeSlider.paintLabels = true
+        controlsPanel.add(JLabel("Population size"))
+        controlsPanel.add(populationSizeSlider)
+
+        evaluationGameDurationSlider = JSlider(JSlider.HORIZONTAL, 1, 2000, 500)
+        evaluationGameDurationSlider.majorTickSpacing = 1999
+        evaluationGameDurationSlider.paintLabels = true
+        controlsPanel.add(JLabel("Evaluation game duration"))
+        controlsPanel.add(evaluationGameDurationSlider)
 
         retainSamplesSlider = JSlider(JSlider.HORIZONTAL, 1, 99, 60)
         controlsPanel.add(JLabel("Retain for next gen %"))
@@ -109,7 +120,7 @@ class GameFrame : JFrame() {
         val networkShape = longArrayOf(inputCount, RacerOutputAction.values().size.toLong())
         val networkLength = SimpleNN.random(networkShape).serialize().second.size
 
-        var generation = createPopulation(networkLength, populationSize, 0.5f)
+        var generation = createPopulation(networkLength, populationSizeSlider.value, 0.5f)
 
         //seed some
 //        generation += (0..populationSize).flatMap {
@@ -137,7 +148,7 @@ class GameFrame : JFrame() {
                 var gameTime = 0
                 do {
                     game.tick(true)
-                } while (++gameTime < gameLength)
+                } while (++gameTime < evaluationGameDurationSlider.value)
 
                 agents.forEach{ (nn, racer) ->
                     nnScore[nn] = nnScore.getOrDefault(nn, 0.0) + game.getRacerScore(racer)
@@ -152,7 +163,7 @@ class GameFrame : JFrame() {
         var lastStatsTime = 0L
         var generationCount = 0
         while(true) {
-            val evResult = evolve(networkShape, generation, evaluateGeneration, retainSamplesSlider.value/100.0, mutationChanceSlider.value/100.0, mutationSizeSlider.value/100.0, mutationStrengthSlider.value/10.0)
+            val evResult = evolve(networkShape, generation.take(populationSizeSlider.value), evaluateGeneration, retainSamplesSlider.value/100.0, mutationChanceSlider.value/100.0, mutationSizeSlider.value/100.0, mutationStrengthSlider.value/10.0)
             generation = evResult.generation
             generationCount++
 
