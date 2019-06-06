@@ -120,7 +120,7 @@ class GameFrame : JFrame() {
         val networkShape = longArrayOf(inputCount, RacerOutputAction.values().size.toLong())
         val networkLength = SimpleNN.random(networkShape).serialize().second.size
 
-        var generation = createPopulation(networkLength, populationSizeSlider.value, 0.5f)
+        var generation = createPopulation(networkLength, populationSizeSlider.value, 0.5)
 
         //seed some
 //        generation += (0..populationSize).flatMap {
@@ -194,11 +194,11 @@ class GameFrame : JFrame() {
 
 class NNCarRacerAgent(private val nn : SimpleNN) : Racer {
 
-    constructor(shape: LongArray, weights: FloatArray) :  this(SimpleNN(Pair(shape, weights)))
+    constructor(shape: LongArray, weights: DoubleArray) :  this(SimpleNN(Pair(shape, weights)))
 
     override fun run(input: RacerInput): Set<RacerOutputAction> {
 
-        val nnInput = floatArrayOf(input.speed.toFloat()) + input.lidarDistances.map { it.toFloat() }.toFloatArray()
+        val nnInput = doubleArrayOf(input.speed.toDouble()) + input.lidarDistances
         val nnOutput = nn.compute(nnInput).map { it > 0.7 }.toBooleanArray() //arbitrary threshold
 
         val res = mutableSetOf<RacerOutputAction>()
