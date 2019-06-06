@@ -11,9 +11,9 @@ enum class EvolveResultStatsType {
     BEST_AGENT
 }
 
-final class EvolveResult(val generation: List<FloatArray>, val stats:Map<EvolveResultStatsType,Any>)
+final class EvolveResult(val generation: List<DoubleArray>, val stats:Map<EvolveResultStatsType,Any>)
 
-fun evolve(nnShape: LongArray, generation: List<FloatArray>, fitnessEvaluation: (Collection<SimpleNN>) -> List<Pair<SimpleNN, Double>>, retainRatio: Double = 0.6, mutationChance: Double = 0.2, mutationSize: Double = 0.3, mutationStrength: Double = 2.0) : EvolveResult {
+fun evolve(nnShape: LongArray, generation: List<DoubleArray>, fitnessEvaluation: (Collection<SimpleNN>) -> List<Pair<SimpleNN, Double>>, retainRatio: Double = 0.6, mutationChance: Double = 0.2, mutationSize: Double = 0.3, mutationStrength: Double = 2.0) : EvolveResult {
     val statsResult = mutableMapOf<EvolveResultStatsType, Any>()
 
     // get score and sort by it
@@ -32,14 +32,14 @@ fun evolve(nnShape: LongArray, generation: List<FloatArray>, fitnessEvaluation: 
     val retainLength = (retainRatio * generation.size).toInt()
 
     // transfer the breeding material plus add some random ones from the less skilled
-    var parents = graded.take(retainLength) + graded.drop(retainLength).filter { Random.nextDouble()<(1-retainRatio) }
+    var parents = graded.take(retainLength - 1) + graded.drop(retainLength).filter { Random.nextDouble()<(1-retainRatio) }
 
-    // mutate some
-    parents = parents.map { if (Random.nextDouble()<mutationChance) mutate(it, mutationSize, mutationStrength) else it }
+    // mutate some + keep the best one
+    parents = arrayListOf(graded[0]) + parents.map { if (Random.nextDouble()<mutationChance) mutate(it, mutationSize, mutationStrength) else it }
 
 
     // fill empty spots by breeding
-    val children = mutableSetOf<FloatArray>()
+    val children = mutableSetOf<DoubleArray>()
     while (children.size+parents.size<generation.size) {
         val p1 = parents.random()
         val p2 = parents.random()
@@ -51,7 +51,7 @@ fun evolve(nnShape: LongArray, generation: List<FloatArray>, fitnessEvaluation: 
     return EvolveResult(parents+children, statsResult)
 }
 
-private fun mutate(network: FloatArray, mutationSize: Double, mutationStrength: Double): FloatArray {
+private fun mutate(network: DoubleArray, mutationSize: Double, mutationStrength: Double): DoubleArray {
     val m = (network.size*mutationSize).toInt() % network.size
 
     val indexes = mutableSetOf<Int>()
@@ -62,14 +62,14 @@ private fun mutate(network: FloatArray, mutationSize: Double, mutationStrength: 
     val res = network.clone()
     indexes.forEach {
         val mutationAmount = Random.nextDouble(mutationStrength * 2) - mutationStrength
-        res[it] += mutationAmount.toFloat()
+        res[it] += mutationAmount
     }
     return res
 }
 
-fun createPopulation(weightsSize: Int, count: Int, weightRange: Float = 20f) = (0 until count).map { FloatArray(weightsSize) { Random.nextFloat() * weightRange}}
+fun createPopulation(weightsSize: Int, count: Int, weightRange: Double = 20.0) = (0 until count).map { DoubleArray(weightsSize) { Random.nextDouble(weightRange) } }
 
-private fun breed(parents: Pair<FloatArray, FloatArray>): FloatArray {
+private fun breed(parents: Pair<DoubleArray, DoubleArray>): DoubleArray {
     val pivot = Random.nextInt(Math.min(parents.first.size, parents.second.size))
-    return (parents.first.take(pivot) + parents.second.drop(pivot)).toFloatArray()
+    return (parents.first.take(pivot) + parents.second.drop(pivot)).toDoubleArray()
 }
