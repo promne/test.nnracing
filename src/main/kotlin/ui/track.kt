@@ -10,12 +10,18 @@ import java.io.File
 import javax.imageio.ImageIO
 import javax.swing.JPanel
 
-class RaceTrackPanel(private val racetrackImg: BufferedImage) : JPanel() {
+class RaceTrackPanel : JPanel {
 
     private val carImage: BufferedImage = ImageIO.read(File("car.png")).let {
         val resized = BufferedImage(it.width/2, it.height/2, BufferedImage.TYPE_INT_ARGB)
         resized.graphics.drawImage(it,0,0,it.width/2,it.height/2, null)
         resized
+    }
+
+    var racetrackImg: BufferedImage
+    set(value) {
+        cars = emptySet()
+        field = value
     }
 
     var race: Race? = null
@@ -24,6 +30,11 @@ class RaceTrackPanel(private val racetrackImg: BufferedImage) : JPanel() {
             field = value
             repaint()
         }
+
+
+    constructor(racetrackImg: BufferedImage) : super() {
+        this.racetrackImg = racetrackImg
+    }
 
     fun toImgPoint(pos : Point) = Point((pos.x * (1.0 * racetrackImg.width / this.width)).toInt(), (pos.y * (1.0 * racetrackImg.height / this.height)).toInt())
 

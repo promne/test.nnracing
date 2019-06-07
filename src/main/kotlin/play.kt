@@ -18,6 +18,15 @@ import java.util.*
 import javax.imageio.ImageIO
 import javax.swing.*
 import kotlin.random.Random
+import javax.swing.JOptionPane
+import java.awt.event.KeyEvent
+import java.awt.image.BufferedImage
+import javax.swing.ImageIcon
+import javax.swing.JMenuItem
+import javax.swing.JPopupMenu
+import javax.swing.JFileChooser
+import javax.swing.event.ChangeListener
+import kotlin.math.min
 
 
 class GameFrame : JFrame() {
@@ -27,6 +36,7 @@ class GameFrame : JFrame() {
     val racePanel: RaceTrackPanel
     val generationHistoryPanel: HistoryChartPanel
     val populationSizeSlider: JSlider
+    val showTopAgentsSlider: JSlider
     val evaluationGameDurationSlider: JSlider
     val retainSamplesSlider: JSlider
     val mutationChanceSlider: JSlider
@@ -34,37 +44,59 @@ class GameFrame : JFrame() {
     val mutationStrengthSlider: JSlider
     val startPointChangeChanceSlider: JSlider
 
+
     private var bestAgents = emptyList<NNCarRacerAgent>()
     var race: Race? = null
+    var racetrackImg: BufferedImage
 
     init {
-        val img = ImageIO.read(File("track1.png"))
+        racetrackImg = ImageIO.read(File("track1.png"))
 
         title = "Track"
 
         defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-        setSize(600, (600.0 * img.height/img.width).toInt())
+        setSize(900, 600)
         setLocationRelativeTo(null)
 
-        racePanel = RaceTrackPanel(img)
+        racePanel = RaceTrackPanel(racetrackImg)
+
+        val jPopupMenu = JPopupMenu()
+        val openRacetrackImageMenuItem = JMenuItem("Open track")
+        openRacetrackImageMenuItem.addActionListener {
+            val fc = JFileChooser()
+            val returnVal = fc.showOpenDialog(this@GameFrame)
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                val file = fc.selectedFile
+                racetrackImg = ImageIO.read(file)
+                racePanel.racetrackImg = racetrackImg
+            }
+        }
+        jPopupMenu.add(openRacetrackImageMenuItem)
+
         racePanel.addMouseListener(object: MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
-                race = Race(img, racePanel.toImgPoint(e.point), 0.0)
-                val topAgents = bestAgents.take(10)
-                race?.let {r ->
-                    topAgents.forEach(r::registerRacer)
-                    racePanel.cars = topAgents.mapNotNull { r.racerCars[it] }
+                if (e.button == MouseEvent.BUTTON3) {
+                    jPopupMenu.show(e.component, e.x, e.y)
+                } else {
+                    race = Race(racePanel.racetrackImg, racePanel.toImgPoint(e.point), 0.0)
+                    race?.let {r ->
+                        bestAgents.forEach(r::registerRacer)
+                        racePanel.cars = bestAgents.mapNotNull { r.racerCars[it] }
+                    }
                 }
             }
         })
 
+
+
+
         val controlsPanel = JPanel()
         controlsPanel.layout = BoxLayout(controlsPanel, BoxLayout.Y_AXIS)
 
-        startPointChangeChanceSlider = JSlider(JSlider.HORIZONTAL, 1, 100, 1)
-        startPointChangeChanceSlider.majorTickSpacing = 99
+        startPointChangeChanceSlider = JSlider(JSlider.HORIZONTAL, 0, 100, 0)
+        startPointChangeChanceSlider.majorTickSpacing = 100
         startPointChangeChanceSlider.paintLabels = true
-        controlsPanel.add(JLabel("Start point change chance"))
+        controlsPanel.add(JLabel("Start point change chance %"))
         controlsPanel.add(startPointChangeChanceSlider)
 
         populationSizeSlider = JSlider(JSlider.HORIZONTAL, 1, 300, 60)
@@ -72,6 +104,14 @@ class GameFrame : JFrame() {
         populationSizeSlider.paintLabels = true
         controlsPanel.add(JLabel("Population size"))
         controlsPanel.add(populationSizeSlider)
+
+        showTopAgentsSlider = JSlider(JSlider.HORIZONTAL, 1, populationSizeSlider.value, 10)
+        controlsPanel.add(JLabel("Display top agents"))
+        controlsPanel.add(showTopAgentsSlider)
+        populationSizeSlider.addChangeListener {
+            showTopAgentsSlider.value = min(showTopAgentsSlider.value, populationSizeSlider.value)
+            showTopAgentsSlider.maximum = populationSizeSlider.value
+        }
 
         evaluationGameDurationSlider = JSlider(JSlider.HORIZONTAL, 1, 2000, 500)
         evaluationGameDurationSlider.majorTickSpacing = 1999
@@ -102,7 +142,7 @@ class GameFrame : JFrame() {
         controlsPanel.add(mutationStrengthSlider)
 
         val controlGameSplitPane = JSplitPane(JSplitPane.HORIZONTAL_SPLIT, racePanel, controlsPanel)
-
+        controlGameSplitPane.dividerLocation = 600
 
         generationHistoryPanel = HistoryChartPanel()
         val splitPane = JSplitPane(JSplitPane.VERTICAL_SPLIT, controlGameSplitPane, generationHistoryPanel)
@@ -145,23 +185,23 @@ class GameFrame : JFrame() {
 //            )
 //        }.map{ nn -> nn.map { it.toFloat() }.toFloatArray() }.take(populationSize)
 
-        val racetrackImg = ImageIO.read(File("track1.png"))
-
         val randomStartPos :  () -> List<Pair<Point,Double>> = { (0..3).map { Race.getRandomStart(racetrackImg) } }
 
         var startPositions = randomStartPos()
+        var lastRacetrackImg = racetrackImg
 
         val evaluateGeneration = { nn:Collection<SimpleNN> ->
             val agents = nn.map { Pair(it, NNCarRacerAgent(it)) }.toMap()
             val nnScore = mutableMapOf<SimpleNN, Double>()
 
-            if (Random.nextInt(100) < startPointChangeChanceSlider.value) {
+            if (Random.nextInt(100) < startPointChangeChanceSlider.value || racetrackImg!=lastRacetrackImg) {
                 // from time to time change starting point
+                lastRacetrackImg = racetrackImg
                 startPositions = randomStartPos()
             }
 
             for (startPosition in startPositions) {
-                val game = Race(racetrackImg, startPosition.first, startPosition.second)
+                val game = Race(lastRacetrackImg, startPosition.first, startPosition.second)
                 agents.values.forEach(game::registerRacer)
 
                 var gameTime = 0
@@ -189,6 +229,7 @@ class GameFrame : JFrame() {
             if (lastStatsTime + 30000 < System.currentTimeMillis()) {
                 println("-------------------")
                 println("Generation $generationCount")
+                println("Timestamp: ${Date()}")
                 println("Total time elapsed ${(System.currentTimeMillis()-startTime)/1000}")
                 evResult.stats.forEach(::println)
                 println()
@@ -203,7 +244,7 @@ class GameFrame : JFrame() {
                 generationHistoryPanel.data = generationHistoryData.takeLast(generationHistoryPanel.width / 2).toTypedArray()
             }
 
-            bestAgents = generation.take(5).map { weights -> NNCarRacerAgent(SimpleNN(Pair(networkShape, weights))) }
+            bestAgents = generation.take(showTopAgentsSlider.value).map { weights -> NNCarRacerAgent(SimpleNN(Pair(networkShape, weights))) }
         }
     }
 
