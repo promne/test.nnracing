@@ -2,8 +2,10 @@ package ui
 
 import game.Race
 import game.RacerCar
+import java.awt.AlphaComposite
 import java.awt.Graphics
 import java.awt.Point
+import java.awt.Transparency
 import java.awt.geom.AffineTransform
 import java.awt.image.BufferedImage
 import java.io.File
@@ -46,13 +48,14 @@ class RaceTrackPanel : JPanel {
 
         //draw cars
         for (car in cars) {
-            val rotatedCarImage = rotateImage(carImage, car.direction)
+            val alpha = if (car.dead) .15f else 1f
+            val rotatedCarImage = rotateImage(carImage, car.direction, alpha)
             val pos = toPanelPoint(car.position)
             g.drawImage(rotatedCarImage, pos.x - rotatedCarImage.width/2, pos.y - rotatedCarImage.height/2, this)
         }
     }
 
-    private fun rotateImage(img: BufferedImage, angle: Double): BufferedImage {
+    private fun rotateImage(img: BufferedImage, angle: Double, alpha: Float = 0f): BufferedImage {
         val sin = Math.abs(Math.sin(angle))
         val cos = Math.abs(Math.cos(angle))
         val w = img.width
@@ -69,6 +72,9 @@ class RaceTrackPanel : JPanel {
         val y = h / 2
 
         at.rotate(angle, x.toDouble(), y.toDouble())
+
+        g2d.composite = AlphaComposite.getInstance( AlphaComposite.SRC_OVER, alpha)
+
         g2d.transform = at
         g2d.drawImage(img, 0, 0, this)
         g2d.dispose()
