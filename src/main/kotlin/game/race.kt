@@ -46,20 +46,13 @@ class Race {
             var startPoint = Point(0, 0)
 
             while (angle.isNaN()) {
-                var trackPoint = Point(0,0)
-
-                while (trackProfile.getRGB(trackPoint.x, trackPoint.y)==0) {
-                    trackPoint = Point(Random.nextInt(trackProfile.width), Random.nextInt(trackProfile.height))
+                while (trackProfile.getRGB(startPoint.x, startPoint.y)==0) {
+                    startPoint = Point(Random.nextInt(trackProfile.width), Random.nextInt(trackProfile.height))
                 }
 
-                val (startLine, _) = findMinMaxRay(trackProfile, trackPoint)
+                val (startLine, _) = findMinMaxRay(trackProfile, startPoint)
 
                 angle = atan(1.0 * abs(startLine.first.x - startLine.second.x) / abs(startLine.first.y - startLine.second.y))
-
-                startPoint = Point(
-                        (startLine.first.x + startLine.second.x)/2,
-                        (startLine.first.y + startLine.second.y)/2
-                )
             }
 
             return Pair(startPoint, angle)
