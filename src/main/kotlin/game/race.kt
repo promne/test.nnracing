@@ -3,10 +3,8 @@ package game
 import java.awt.Point
 import java.awt.image.BufferedImage
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.roundToInt
-import kotlin.math.sin
+import kotlin.math.*
+import kotlin.random.Random
 
 data class RacerInput(val speed: Int, val lidarDistances: List<Double>)
 enum class RacerOutputAction {
@@ -36,12 +34,72 @@ class Race {
 
     private val trackMap: Array<BooleanArray>
     private val startingPoint: Point
+    private val startingAngle: Double
     private var tickCount = 0
 
     val racerCars = mutableMapOf<Racer, RacerCar>()
     val lidarCache: MutableMap<Pair<Point, Double>, List<Double>>
 
-    constructor(trackProfile: BufferedImage, startingPoint: Point, lidarCache: MutableMap<Pair<Point, Double>, List<Double>> = ConcurrentHashMap()) {
+    companion object {
+        fun getRandomStart(trackProfile: BufferedImage) : Pair<Point, Double> {
+            var angle = Double.NaN
+            var startPoint = Point(0, 0)
+
+            while (angle.isNaN()) {
+                var trackPoint = Point(0,0)
+
+                while (trackProfile.getRGB(trackPoint.x, trackPoint.y)==0) {
+                    trackPoint = Point(Random.nextInt(trackProfile.width), Random.nextInt(trackProfile.height))
+                }
+
+                val (startLine, _) = findMinMaxRay(trackProfile, trackPoint)
+
+                angle = atan(1.0 * abs(startLine.first.x - startLine.second.x) / abs(startLine.first.y - startLine.second.y))
+
+                startPoint = Point(
+                        (startLine.first.x + startLine.second.x)/2,
+                        (startLine.first.y + startLine.second.y)/2
+                )
+            }
+
+            return Pair(startPoint, angle)
+        }
+
+        private fun findMinMaxRay(trackProfile: BufferedImage, imgPoint: Point) : Pair<Pair<Point, Point>, Pair<Point, Point>> {
+            val raysCount = 100
+
+            val color = trackProfile.getRGB(imgPoint.x, imgPoint.y)
+            val widthRange = IntRange(0, trackProfile.width-1)
+            val heightRange = IntRange(0, trackProfile.height-1)
+
+
+            return (0..raysCount).map { ray ->
+                val angle = (PI / raysCount) * ray
+
+                val calcEndpoint: (Double) -> Point = {rayAngle ->
+                    val xg = cos(rayAngle)
+                    val yg = sin(rayAngle)
+                    (0..Math.max(trackProfile.width, trackProfile.height)).map { Point((imgPoint.x + it * xg).toInt(), (imgPoint.y + it * yg).toInt()) }.takeWhile {
+                        heightRange.contains(it.y) && widthRange.contains(it.x) && trackProfile.getRGB(it.x, it.y) == (color)
+                    }.lastOrNull()?:imgPoint
+                }
+
+                Pair(calcEndpoint(angle), calcEndpoint(angle + PI))
+            }.fold(Pair(Pair(Point(0, 0), Point(trackProfile.width, trackProfile.height)), Pair(Point(0,0), Point(0,0)))) { curRes, ray ->
+                val rayLength = ray.first.distance(ray.second)
+                if (curRes.first.first.distance(curRes.first.second) > rayLength) {
+                    curRes.copy(first = ray)
+                } else if (curRes.second.first.distance(curRes.second.second) < rayLength) {
+                    curRes.copy(second = ray)
+                } else {
+                    curRes
+                }
+            }
+        }
+
+    }
+
+    constructor(trackProfile: BufferedImage, startingPoint: Point, startingAngle: Double, lidarCache: MutableMap<Pair<Point, Double>, List<Double>> = ConcurrentHashMap()) {
         trackMap = Array(trackProfile.height) { BooleanArray(trackProfile.width) }
         for (x in 0 until trackProfile.width) {
             for (y in 0 until trackProfile.height) {
@@ -53,12 +111,14 @@ class Race {
             throw IllegalArgumentException("Starting point has to be on the track")
         }
         this.startingPoint = startingPoint
+        this.startingAngle = startingAngle
         this.lidarCache = lidarCache
     }
 
     fun registerRacer(racer: Racer) {
         val car = RacerCar()
         car.position = startingPoint
+        car.direction = startingAngle
         racerCars[racer] = car
     }
 
@@ -74,7 +134,7 @@ class Race {
         val yg = sin(angle)
         return (0..Math.max(trackMap.size, trackMap[0].size)).map { Point((startPoint.x + it * xg).toInt(), (startPoint.y + it * yg).toInt()) }.takeWhile {
             heightRange.contains(it.y) && widthRange.contains(it.x) && trackMap[it.y][it.x]
-        }.last()
+        }.lastOrNull()?:startPoint
     }
 
     fun getRacerScore(racer: Racer): Double {

@@ -15,9 +15,9 @@ import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.imageio.ImageIO
 import javax.swing.*
+import kotlin.random.Random
 
 
 class GameFrame : JFrame() {
@@ -32,6 +32,7 @@ class GameFrame : JFrame() {
     val mutationChanceSlider: JSlider
     val mutationSizeSlider: JSlider
     val mutationStrengthSlider: JSlider
+    val startPointChangeChanceSlider: JSlider
 
     private var bestAgents = emptyList<NNCarRacerAgent>()
     var race: Race? = null
@@ -48,7 +49,7 @@ class GameFrame : JFrame() {
         racePanel = RaceTrackPanel(img)
         racePanel.addMouseListener(object: MouseAdapter() {
             override fun mouseClicked(e: MouseEvent) {
-                race = Race(img, racePanel.toImgPoint(e.point))
+                race = Race(img, racePanel.toImgPoint(e.point), 0.0)
                 val topAgents = bestAgents.take(10)
                 race?.let {r ->
                     topAgents.forEach(r::registerRacer)
@@ -59,6 +60,12 @@ class GameFrame : JFrame() {
 
         val controlsPanel = JPanel()
         controlsPanel.layout = BoxLayout(controlsPanel, BoxLayout.Y_AXIS)
+
+        startPointChangeChanceSlider = JSlider(JSlider.HORIZONTAL, 1, 100, 1)
+        startPointChangeChanceSlider.majorTickSpacing = 99
+        startPointChangeChanceSlider.paintLabels = true
+        controlsPanel.add(JLabel("Start point change chance"))
+        controlsPanel.add(startPointChangeChanceSlider)
 
         populationSizeSlider = JSlider(JSlider.HORIZONTAL, 1, 300, 60)
         populationSizeSlider.majorTickSpacing = 299
@@ -73,14 +80,20 @@ class GameFrame : JFrame() {
         controlsPanel.add(evaluationGameDurationSlider)
 
         retainSamplesSlider = JSlider(JSlider.HORIZONTAL, 1, 99, 60)
+        retainSamplesSlider.majorTickSpacing = 99
+        retainSamplesSlider.paintLabels = true
         controlsPanel.add(JLabel("Retain for next gen %"))
         controlsPanel.add(retainSamplesSlider)
 
         mutationChanceSlider = JSlider(JSlider.HORIZONTAL, 1, 99, 10)
+        mutationChanceSlider.majorTickSpacing = 99
+        mutationChanceSlider.paintLabels = true
         controlsPanel.add(JLabel("Mutation chance %"))
         controlsPanel.add(mutationChanceSlider)
 
         mutationSizeSlider = JSlider(JSlider.HORIZONTAL, 1, 99, 5)
+        mutationChanceSlider.majorTickSpacing = 99
+        mutationChanceSlider.paintLabels = true
         controlsPanel.add(JLabel("Mutation size %"))
         controlsPanel.add(mutationSizeSlider)
 
@@ -134,16 +147,21 @@ class GameFrame : JFrame() {
 
         val racetrackImg = ImageIO.read(File("track1.png"))
 
+        val randomStartPos :  () -> List<Pair<Point,Double>> = { (0..3).map { Race.getRandomStart(racetrackImg) } }
+
+        var startPositions = randomStartPos()
+
         val evaluateGeneration = { nn:Collection<SimpleNN> ->
             val agents = nn.map { Pair(it, NNCarRacerAgent(it)) }.toMap()
             val nnScore = mutableMapOf<SimpleNN, Double>()
 
+            if (Random.nextInt(100) < startPointChangeChanceSlider.value) {
+                // from time to time change starting point
+                startPositions = randomStartPos()
+            }
 
-            val lidarCache = ConcurrentHashMap<Pair<Point, Double>, List<Double>>()
-            val startPoints = listOf(Point(154,427), Point(291,276), Point(326,90), Point(383,405))
-
-            for (point in startPoints) {
-                val game = Race(racetrackImg, point, lidarCache)
+            for (startPosition in startPositions) {
+                val game = Race(racetrackImg, startPosition.first, startPosition.second)
                 agents.values.forEach(game::registerRacer)
 
                 var gameTime = 0
@@ -182,7 +200,7 @@ class GameFrame : JFrame() {
             // ignore first idiot generations
             if (generationHistoryPanel.data.isNotEmpty() || currentGenMetrics.toSet().size > 1) {
                 generationHistoryData += currentGenMetrics
-                generationHistoryPanel.data = generationHistoryData.take(generationHistoryPanel.width * 5).toTypedArray()
+                generationHistoryPanel.data = generationHistoryData.takeLast(generationHistoryPanel.width / 2).toTypedArray()
             }
 
             bestAgents = generation.take(5).map { weights -> NNCarRacerAgent(SimpleNN(Pair(networkShape, weights))) }
